@@ -1,1 +1,1341 @@
 
+#Extraction_Potato_clade_from_Solanaceae
+#By Edeline Gagnon, 4th of December 2018
+
+#Libraries to use
+library(ape)
+library(ggtree)
+library(treeio)
+#library(raster)
+library(maptools)
+data(wrld_simpl)
+
+#####################
+#Step 0
+#Set the working directory. Alternatively, put file.choose() whenever you see a file name.
+getwd()
+setwd("C:/Users/edeli/OneDrive/Projets_Recherche/2019_Tuber_project/TUBER_RPROJ/Data_Prep/Occurence_data/Solanum/Solanaceae_source_2021")
+dir()
+
+#####################
+#Step 1: import data to be used
+
+#Import csv file with potato occurence data
+coll.solanum<-read.csv("Solanum_all_COLLEXTRACT_21-04-2021_at_08-39-16.CSV",header=TRUE,na.strings = c("NA",""," "))
+coll.solanum<-read.table("Solanum_all_COLLEXTRACT_21-04-2021_at_08-39-16.txt",header=TRUE,sep="\t")
+
+dim(coll.solanum)
+sort(names(coll.solanum))
+df<-coll.solanum
+
+#create a column whose name is a mixture of genus and sp1, or alternative just search based on sp1
+df$genus.sp <- paste(df$GENUS,"_",df$SP1, sep="")
+df$genus.sp<-gsub("/","_",df$genus.sp)
+
+#This is a list of unique Brahm identifiers whose rows need to be removed in the occurence database.
+remove.brahms<-c(9233,9226,123968,123967,75090,75091,95021,72466,103162,123972,123973,34563,6167,4467,118661,88482,121767,138552,123979,36021,36022)
+df <- df[ ! df$BRAHMS %in% remove.brahms, ]
+dim(df)
+solanum.clade.names<-unique(df$genus.sp)
+table.original.data<-table(df$genus.sp)
+
+#index<-which(is.na(df$LAT))
+#length(index)
+#dim(df[-index,])#72306
+#df<-df[-index,]
+
+original.data<-df
+
+table(df$CONTINENT)
+SA.sol <- df[df$CONTINENT == "Southern America", ]
+NA.sol <- df[df$CONTINENT == "Northern America", ]
+
+df.SA.NA<-rbind(SA.sol, NA.sol)
+df.SA.NA$genus.sp <- paste(df.SA.NA$GENUS,"_",df.SA.NA$SP1, sep="")
+dim(df.SA.NA)
+
+
+#For all the other data
+df.other <- df[! df$BRAHMS %in% df.SA.NA$BRAHMS, ]
+
+#####################
+#Step 2: Create a list of dataframes with occurence records for each solanum species
+#####################
+setwd("C://Users/egagnon/Documents/OneDrive/Projets_Recherche/2018_Solanum_phylogeny/Solanum_phylogeny/input/Solanum_occurence_data_Americas/")
+
+length(unique(df$genus.sp))
+write.csv(table(df$genus.sp),"Solanum_species_in_original_database.csv")
+
+occurence.records<-list()
+#number.records.potato<-matrix(,nrow=185,ncol=2)
+number.records.solanum<-matrix(,nrow=length(unique(df$genus.sp)),ncol=2)
+
+number.records.solanum
+rownames(number.records.solanum)<-unique(df$genus.sp)
+head(number.records.solanum)
+number.records.solanum["Solanum_berthaultii",]
+
+solanum.clade.names<-unique(df$genus.sp)
+
+
+#script for producing the data.
+for (i in solanum.clade.names)
+{
+print(i)
+ #   i<-"Solanum_cheesmaniae_lycopersicum"
+  df[grepl(i,df$genus.sp),]->occurence.records[[i]]
+  
+  #This writes a table of occurence data for each species
+  name<-paste(i,"occurence_data.txt",sep="_")
+  write.table(df[grepl(i,df$genus.sp),], file=name)
+  
+  #This produces a map for each species
+  df[grepl(i,df$genus.sp),]->toto
+  name.map<-paste(i,"occurence_data.pdf",sep="_")
+  pdf(file=name.map)
+  plot(wrld_simpl)
+  points(toto$LONGDEC,toto$LATDEC,col="red",pch=20,cex=0.75)
+  name.title<-paste(i,"occurence","data")
+  title(name.title)
+  dev.off()
+  #class(df[grepl(i,df$genus.sp),])  
+  print(dim(occurence.records[[i]]))
+  
+  dim(occurence.records[[i]])->number.records.solanum[i,]
+}
+
+
+#This indicates the number of recrods per species, from smallest number of records to largest.
+number.records.solanum
+number.records.solanum[order(number.records.solanum[,1]),]->toto
+toto
+write.table(toto,file="summary_nb_records_solanum.txt",sep="\t")
+
+#creates a data.frame with all extracted records
+do.call("rbind", occurence.records)->all.records
+#write.csv(all.records,"all_records_potato.txt")
+
+# plot all data
+data<-all.records
+data<-df
+names(data)
+#plot(predictors, 1)
+plot(wrld_simpl)
+#plot(wrld_simpl, xlim=c(-80,70), ylim=c(-60,10), axes=TRUE, col="light yellow")
+# here make sure you are calling the right column headings
+# i think for you it should say $Long and $lat 
+
+#Untag png lines if you like to save map as image
+#png()
+points(data$LONGDEC, data$LATDEC, col='red', pch=20, cex=0.75)
+#dev.off()
+
+
+
+######################################################
+#Step 3: Remove species that are cultivated + other bits and bobs
+######################################################
+
+sp.to.remove<-c(
+  "Solanum_cheesmaniae x galapagense",
+  "Solanum_cheesmaniae x pimpinellif",
+  "Solanum_cheesmaniae_lycopersicum",
+  "Solanum_sp.",
+  "Solanum_sp. (Basarthrum)",
+  "Solanum_sp. (Brevantherum)",
+  "Solanum_sp. (Geminata)",
+  "Solanum_sp. (Morelloid)",
+  "Solanum_sp. (Petota)",
+  "Aureliana_fasciculata",
+  "Jaltomata_antillana",
+  "Lycianthes_biflora",
+  "Lycianthes_fugax",
+  "Lycianthes_laevis",
+  "Lycianthes_stellata",
+  "Lycianthes_testacea",
+  "Lycianthes_virgata",
+  "Solanum_'hunzikeri'",
+  "Solanum_'hydroides'",
+  "Solanum_'pseudonitidi'",
+  "Solanum_'tiinae2"
+)
+data<-df
+dim(data) #115475
+
+data <- data[ ! data$genus.sp %in% sp.to.remove, ]
+
+#for (i in 1:length(sp.to.remove))
+#{data<-data[!data$genus.sp==sp.to.remove[i],]
+#}
+dim(df)#72306 #115475
+dim(data)#72284 #113149
+
+#Solanum_lycopersicum: TOMATO
+#Solanum_muricatum: Pepino
+#Solanum_tuberosum: Potato
+#toto<-data
+
+remove.cultivated<-c("Solanum_lycopersicum","Solanum_tuberosum","Solanum_muricatum")
+data <- data[ ! data$genus.sp %in% remove.cultivated, ]
+dim(data)#72208 #110782
+length(unique(data$genus.sp))#1071 removed #1265 removed
+
+
+#check if there is an issue with missing LATDEC and LONGDEC
+
+table(is.na(data$LONGDEC))#FALSE
+table(is.na(data$LATDEC))#FALSE
+
+#data[is.na(data$LATDEC)==TRUE,]
+#write.csv(data[is.na(data$LATDEC)==TRUE,], "flag_missing_LATDEC.csv")
+#to.mod<-data[is.na(data$LATDEC)==TRUE,]
+#to.mod$LATDEC<-c("-17.507", "-3.115", "-23.813")
+#toto<-data[!is.na(data$LATDEC)==TRUE,]
+#data<-rbind(toto,to.mod)
+
+
+######################################################
+#Step 1: checking for conversion errors
+######################################################
+
+#Checking for records that were potentially not well transcribed in the database, that were originally 
+#decimal, stored as DDmmss, and then converted back to decimals, resulting in their wrong placement.
+#Can be detected by if their minutes are higher than 6., for either latitude or longitude.
+
+library(stringr)
+
+#all.records->toto2
+data->toto2
+#specimen.records.to.edit->toto2
+
+# split the LatLong column in to a LATARC and LONGARC
+toto2$LATLONG<-as.vector(toto2$LATLONG)
+#important to remove data that has no values in LATLONG prior to running the rest of the script
+dim(toto2)
+for(i in 1:length(toto2$LATLONG))
+  if (is.na(toto2$LATLONG[i]))
+  {
+    print(paste("Row", i, "has no value for toto$LATLONG"))
+    toto2$LATLONG[i]<-"00°00'00' S, 00°00'00'W"
+    print(toto2$LATLONG[i])
+  }
+dim(toto2)
+
+toto2$LATLONG->string
+str_split(string,",")->toto
+
+class(toto)
+#str(toto)
+length(toto)#[1]
+
+class(toto[[1]])
+#delete nb 226 (zero value)
+output <- matrix(unlist(toto), ncol = 2, byrow = TRUE)
+#output <-as.data.frame(output)
+#class(output)
+#class(data$BRAHMS)
+
+
+
+output[,1]->lat
+output[,2]->lon
+
+#for lat and lon, extract the value of the first minute decimal
+str_sub(lat,4,4)->lat2
+
+m<-str_locate(lat,"°")
+
+for(i in 1:length(lat))
+{
+  
+  #  if(m[i]==4)
+  t=m[i]+1
+  str_sub(lat[i],t,t)->lat2[i] }
+
+#  if(m[i]==5)
+#  {t=m[i]+1
+#    str_sub(lon[i],6,6)->lon2[i] }
+
+#} 
+length(lat2)
+#########
+
+m<-str_locate(lon,"°")
+lon2<-c()
+
+for(i in 1:length(lon))
+{
+  t=m[i]+1
+  
+  str_sub(lon[i],t,t)->lon2[i] }
+
+length(lon2)
+
+#################################
+#Now, figure out which seconds are problematic
+#for lat and lon, extract the value of the first minute decimal
+lat.sec<-c()
+m<-str_locate(lat,"'")
+
+for(i in 1:length(lat))
+{
+  
+  #  if(m[i]==4)
+  t=m[i]+1
+  str_sub(lat[i],t,t)->lat.sec[i] }
+
+#  if(m[i]==5)
+#  {t=m[i]+1
+#    str_sub(lon[i],6,6)->lon2[i] }
+
+#} 
+#lat.sec
+gsub("\\s","0",lat.sec)->lat.sec
+
+
+lon.sec<-c()
+m<-str_locate(lon,"'")
+
+for(i in 1:length(lon))
+{
+  t=m[i]+1
+  
+  str_sub(lon[i],t,t)->lon.sec[i] }
+
+#lon.sec
+gsub("\\s","0",lon.sec)->lon.sec
+
+as.numeric(lat.sec)->lat.sec
+as.numeric(lon.sec)->lon.sec
+as.numeric(lat2)->lat2
+as.numeric(lon2)->lon2
+length(lat.sec)
+length(lon.sec)
+
+###############
+# Keep the good 
+#creates vector that will store brahm numbers
+exclude2<-c()
+
+for(i in 1:length(lat2))
+{  
+  if(isTRUE(lat2[i]>5)) #lon2[i]>=6))#| lat.sec[i]>=6 |lon.sec[i]>=6 ))
+  {
+    exclude2[i]<-toto2$BRAHMS[i]
+    index <- which(!is.na(exclude2))
+    print("1")
+  }
+  
+  if(isTRUE(lon2[i]>5)) 
+  {
+    exclude2[i]<-toto2$BRAHMS[i]
+    index <- which(!is.na(exclude2))
+    print("2")
+  }
+  
+  if(isTRUE(lat.sec[i]>5)) 
+  {
+    exclude2[i]<-toto2$BRAHMS[i]
+    index <- which(!is.na(exclude2))
+    print("3")
+  }
+  
+  if(isTRUE(lon.sec[i]>5)) 
+  {
+    exclude2[i]<-toto2$BRAHMS[i]
+    index <- which(!is.na(exclude2))
+    print("4")
+  }
+  
+}  
+length(exclude2)
+table(is.na(exclude2))#THERE are no bad samples
+
+###################################
+# So now that i've identified the problematic samples,
+# Get an index of those samples
+# rewrite those faulty from DD MM SS to DD.MMSS
+# check on a map the before and after for each species.
+
+#FOR LATITUDE
+#"°"sub for "."
+gsub("°",".",lat)->lat3
+head(lat3)
+
+#remove spaces
+gsub("\\s", "", lat3)->lat3
+
+#remove '
+gsub("'", "", lat3)->lat3
+
+#Add plus or minus sign depending if coord is N (+) or S (-)
+
+la<-str_extract(lat3,"[[:alpha:]]")
+
+for(i in 1:length(la))
+{
+  if(la[i]=="S")
+  {paste("-",lat3[i],sep="")->lat3[i]}
+} 
+lat3
+
+#remove letters
+gsub("[[:alpha:]]", "", lat3)->lat3
+
+#########################
+###FOR LONGITUDE
+#"°"sub for "."
+gsub("°",".",lon)->lon3
+head(lon3)
+
+#remove any text after W or E
+str_split_fixed(lon3,"Alt:",n=2)->lo
+as.vector(lo[,1])->lon3
+
+#remove spaces
+gsub("\\s", "", lon3)->lon3
+lon3
+
+#remove '
+gsub("'", "", lon3)->lon3
+lon3
+
+#Add plus or minus sign depending if coord is W (-) or E (+)
+lo<-str_extract(lon3,"[[:alpha:]]")
+
+for(i in 1:length(lo))
+{
+  if(lo[i]=="W")
+  {paste("-",lon3[i],sep="")->lon3[i]}
+} 
+lon3
+
+#remove letters
+gsub("[[:alpha:]]", "", lon3)->lon3
+#########################################
+#okay, now, based on index, I want to add the values of lat3 and lon3, to columns LATDEC2 and LONGDEC2
+# THERE ARE NO BAD SAMPLES, SO I'm IGNORING THIS!
+
+index2<-which(is.na(toto2$LATDEC2))
+#remove '
+fix<-sub('.', '', lat3[index2])
+
+lat3[index2]<-fix
+
+toto2$LATDEC2<-as.numeric(lat3)
+toto2$LONGDEC2<-as.numeric(lon3)
+
+toto2[index,]->flags.ddmm.allrecords
+toto2[-index,]->keep
+
+#dir.create("flags")
+#write.csv(flags.ddmm.allrecords,"./flags/flags_ddmm_all_records.csv")
+print(paste("Numbers of flags.ddmm:",dim(exclude2),"out of", dim(toto2)[1],"original samples."))
+
+#visualize problems and modifications.
+#flags.ddmm.allrecords->toto8
+#plot(wrld_simpl,  xlim=c(round(min(toto8$LONGDEC)),round(max(toto8$LONGDEC))), ylim=c(round(min(toto8$LATDEC)),round(max(toto8$LATDEC))),axes=TRUE, col="light yellow")
+#points(toto8$LONGDEC, toto8$LATDEC, col="red", cex=0.75)
+#points(toto8$LONGDEC2, toto8$LATDEC2, col="blue", cex=0.75)
+
+#mod<-flags.ddmm.allrecords
+#mod$LATDEC<-mod$LATDEC2
+#mod$LONGDEC<-mod$LONGDEC2
+# So these are conversion errors, and the altitudes are always the original data from labels... 
+# So i won't modify them here.
+
+#table(is.na(mod$LATDEC))
+#table(is.na(mod$LONGDEC))
+
+#rbind(mod,keep)->new.data
+
+#dim(mod)
+dim(keep)
+class(keep)
+
+#rbind(keep,mod)->new.data
+#dim(new.data)
+
+#table(new.data$genus.sp)
+
+#new.data->data.ddmm.allrecords
+#new.data->data
+
+keep->data
+
+######################################################
+#Step 4: Check for wrong country
+###################################################
+library(dismo)
+
+# Set working directory
+
+getwd()
+
+
+#In column COUNTRY, rename United States of America, to United States
+
+sub("United States of America","United States",data$COUNTRY)->new
+new->data$COUNTRY
+
+sub("Russian Federation","Russia",data$COUNTRY)->new
+new->data$COUNTRY
+
+sub("Virgin Islands \\(US\\)","Virgin Islands, U.S.", data$COUNTRY)->new2
+new2->data$COUNTRY
+
+sub("Netherlands Antilles","Bonaire, Saint Eustatius and Saba",data$COUNTRY)->new
+new->data$COUNTRY
+
+sub("Myanmar \\(Burma\\)","Myanmar",data$COUNTRY)->new
+new->data$COUNTRY
+
+sub("Cocos \\(Keeling\\) Islands","Cocos Islands",data$COUNTRY)->new
+new->data$COUNTRY
+
+sub("Egypt\\/Sudan","Sudan",data$COUNTRY)->new
+new->data$COUNTRY
+
+sub("Côte d'Ivoire","CÃ´te d'Ivoire",data$COUNTRY)->new
+new->data$COUNTRY
+
+sub("Brunei Darussalam","Brunei",data$COUNTRY)->new
+new->data$COUNTRY
+
+sub("Korea, Republic of","South Korea",data$COUNTRY)->new
+new->data$COUNTRY
+
+
+sub("Marquesas Islands","French Polynesia",data$COUNTRY)->new
+new->data$COUNTRY
+
+sub("Syrian Arab Republic","Syria",data$COUNTRY)->new
+new->data$COUNTRY
+
+sub("Palestine","Palestina",data$COUNTRY)->new
+new->data$COUNTRY
+
+sub("São Tome e Principe","Sao Tome and Principe",data$COUNTRY)->new
+new->data$COUNTRY
+
+
+
+table(new)
+table(data$COUNTRY)
+
+# Method one: use hijmans over function, as show in :
+getData("countries")->world
+
+data->data2
+dim(data2)
+as.numeric(data2$LONGDEC)->data2$LONGDEC
+as.numeric(data2$LATDEC)->data2$LATDEC
+coordinates(data2)<-~LONGDEC+LATDEC
+crs(data2)<-crs(world)
+class(data2)
+
+ovr <- over(data2, world)
+head(ovr)
+colnames(ovr)
+
+cntr<-ovr$NAME_ENGLISH
+
+
+j <-which((cntr) != as.vector(data2$COUNTRY))
+j
+
+length(j)#gives number of coordinaes which don't fall in the right country
+#164
+
+cbind(cntr, data2$COUNTRY)
+
+cbind(cntr, data)[j,]->probs_j
+table(probs_j$genus.sp)
+table(probs_j$COUNTRY)
+
+dim(probs_j)
+#[1] 164 174
+probs_j->flags.countries
+
+#visualize
+plot(wrld_simpl)
+points(flags.countries$LONGDEC,flags.countries$LATDEC,col="red",pch=20,cex=0.75)
+
+write.csv(flags.countries,"./flags_countries_other2round.csv")
+
+
+#remove this data
+data[-j,]->data.country
+dim(data.country)
+length(unique(data.country$genus.sp))
+data.country->data
+
+#Add in Data that is actually okay, upon inspection
+extract.brahms<-c(102417, 181, 20675, 66264,66292,68020,102703,102704,102706,30823,30824,31355,31356,31445,31446
+                  ,31448,31449,31451,62071,62083
+                  ,66413
+                  ,66415
+                  ,66438
+                  ,66540
+                  ,66542
+                  ,128889
+                  ,128938
+                  ,128939
+                  ,128945
+                  ,128961
+                  ,128963
+                  ,128964
+                  ,128965
+                  ,128968
+                  ,128969
+                  ,128970
+                  ,101972
+                  ,105474
+                  ,105475
+                  ,105478
+                  ,105479
+                  ,98350
+                  ,98352
+                  ,57519
+                  ,96156
+                  ,96157
+                  ,96158
+                  ,96228
+                  ,66446
+                  ,66461
+                  ,119108
+                  ,60563
+                  ,132184
+                  ,132185
+                  ,132186
+                  ,132187
+                  ,191
+                  ,258
+                  ,13596
+                  ,102721
+                  ,68156
+                  ,68158
+                  ,68194
+                  ,68195
+                  ,33848
+                  ,33849
+                  ,33869
+                  ,33950
+                  ,33951
+                  ,33952
+                  ,33971
+                  ,33973
+                  ,34121
+                  ,34123
+                  ,54122
+                  ,104152
+                  ,104153
+                  ,104154
+                  ,110377,117716,119932,129409,129411,67639,67862,67864,67865,67866,67869,67870,67872,67873,67875,67877,67880,102443
+                  ,67623
+                  ,68064
+                  ,102860
+                  ,102868
+                  ,102869
+                  ,102877
+                  ,102878
+                  ,102879
+                  ,102884
+                  ,102885
+                  ,102888
+                  ,102889
+                  ,139330
+                  ,39465
+                  ,41401
+                  ,41421
+                  ,41423
+                  ,33869
+                  ,33950
+                  ,33951
+                  ,34121
+                  ,34123
+                  ,34131
+                  ,34135
+                  ,129411
+
+                  
+)
+
+
+data.keep <- data[  data$BRAHMS %in% extract.brahms, ]
+dim(data.keep)
+
+data.country2<-rbind(data.country,data.keep)
+dim(data.country2)
+data.country2->data
+
+dim(df)[1]-dim(data)[1]#6141 removed from country
+
+##################
+#SeaRemoval + Pushback script
+##################
+
+############################################################################################################################
+# 1) Load packages 
+############################################################################################################################
+
+#install.packages("maptools")
+library(maptools)
+library(raster)
+library(sp)
+
+data$genus.sp <- paste(data$GENUS,"_",data$SP1, sep="")
+
+data.coord <- data %>%
+  dplyr::select(genus.sp, LATDEC, LONGDEC, COUNTRY, MAJORAREA, LOCNOTES,LATLONG,
+                BRAHMS, FAMILY,  YEAR, GENUS, ALT, ALTMAX, ALTUNIT, ALTRES,
+                TYPE, ACCEPTED, COLLECTOR, NUMBER) 
+
+#examine the results
+class(data.coord)
+dim(data.coord)
+head(data.coord)
+
+class(data.coord[,3])
+class(data.coord[,2])
+
+data.coord[,2]<-as.numeric(data.coord[,2])
+
+#create an object of class "SpatialPoints" with the geographic coordinates of the specimens
+data.coord.spatial <- SpatialPoints(data.coord[,3:2], proj4string=CRS("+proj=longlat +datum=WGS84 +no_defs"))
+class(data.coord.spatial)
+
+
+############################################################################################################################
+# 4) Read raster mask that indicates the grid cells that have climate data. The raster has a 30 arc secods resolution,
+# or 0.008333334 X 0.008333334 degrees.
+############################################################################################################################
+
+setwd("C://Users/edeli/OneDrive/Projets_Recherche/2019_Tuber_project/TUBER_RPROJ/Data_Prep/Environmental_layers/final")
+#setwd("Q:/World/MODIS+CHIRPS bioclim data 3degree resolution/MOD11C3-CHIRPS_BIOCLIMS_03m")
+
+
+wd <- getwd()
+files <- list.files(path=wd, pattern='.tif', full.names=TRUE)
+list(files)
+#predictors <- stack(files)
+#predictors
+predictors.bio1<-raster(files[[4]]) #selects Bio6 file
+plot(predictors.bio1)
+############################################################################################################################
+# 5) Determine which specimen records (that have geographic coordinates and have been determined to species) fall outside
+# the mask for the climate data 
+############################################################################################################################
+
+#plot the mask
+plot(predictors.bio1, useRaster=T, legend=F)
+plot(data.coord.spatial, add=T, pch=19, cex=0.2, col="red")
+axis(1)
+mtext(side=1, "Longitude (degrees)", cex=1.5, line=3)
+axis(2)
+mtext(side=2, "Latitude (degrees)", cex=1.5, line=3)
+
+#extract the values of the mask at the coordiantes of the specimen records
+data.coord.land <- extract(predictors.bio1, data.coord[,3:2], method='simple')
+
+class(data.coord.land)
+summary(data.coord.land)
+sum(is.na(data.coord.land)) #number of specimens falling outside the mask: 32642
+sum(!is.na(data.coord.land)) #number of specimens falling inside the mask : 76692
+
+#plot the mask and specimens that fall off the mask
+plot(predictors.bio1, col="gray90", useRaster=T, legend=F)
+plot(data.coord.spatial[which(is.na(data.coord.land))], add=T, pch=19, cex=0.2, col="red")
+points(data.coord[which(is.na(data.coord.land)),3:2], pch=19, cex=0.5, col="red")
+mtext(side=1, "Longitude (degrees)", cex=1.5, line=3)
+mtext(side=2, "Latitude (degrees)", cex=1.5, line=3)
+
+class(data.coord.land)
+length(data.coord.land)
+
+############################################################################################################################
+# 6) Assign new coordinates to specimen records that fall < 2,000 m  from the mask for the climate data. The new coordinates
+# are those of the center of the nearest grid cell with climate data.
+############################################################################################################################
+
+#obtain coordinates for the center of all grid cells in the mask with no NA values;
+#first obtain cell number and values for all grid cells
+data.mask.0.cell.values <- extract(predictors.bio1, coordinates(predictors.bio1), cellnumbers=T)
+head(data.mask.0.cell.values)
+#now obtain the coordinates for all grid cells with no NA values and plot them
+data.mask.0.CoorNotNA <- xyFromCell(predictors.bio1, data.mask.0.cell.values[!is.na(data.mask.0.cell.values[,2]),1])
+class(data.mask.0.CoorNotNA)
+dim(data.mask.0.CoorNotNA)
+head(data.mask.0.CoorNotNA)
+
+#plot(predictors.bio1, col="gray70", useRaster=T, legend=F)
+plot(wrld_simpl,  axes=TRUE, col="light yellow")
+points(data.mask.0.CoorNotNA, pch=19, cex=0.01, col="blue")
+
+
+#create a matrix that will hold the new (altered) coordiantes for the specimens that fall outside the mask,
+#these new coordinate are those of the center of the nearest grid cell; the matrix also has a column for
+#the distance (in meters) between the original coordinates and the new (altered) coordinates.
+altered.coor <- matrix(NA, nrow=length(which(is.na(data.coord.land))), ncol=3)
+colnames(altered.coor) <- c("AlteredLongitudeDecimal", "AlteredLatitudeDecimal", "DistFromOriginalCoorMeters")
+dim(altered.coor)
+
+
+#run a loop to assign the coordinates of the closest grid cell to each specimen record falling outside the mask,
+#and to measure the distance between the original and the new (altered) coordinates
+data.coord.land2<-data.coord.land
+data.coord.land<-data.coord.land[-48]
+
+for(i in 1:length(which(is.na(data.coord.land))))
+{
+  all.dist <- pointDistance(data.mask.0.CoorNotNA, (data.coord[which(is.na(data.coord.land)),3:2])[i,], lonlat=T)
+  altered.coor[i,3] <- min(all.dist)
+  altered.coor[i,1:2] <- data.mask.0.CoorNotNA[which(all.dist<=min(all.dist)),]
+}
+
+#examine the results
+summary(altered.coor)
+dim(altered.coor)
+head(altered.coor)
+hist(altered.coor[,3], breaks=100)
+sum(altered.coor[,3]<2000)
+sum(altered.coor[,3]>=2000)
+
+#plot the mask, the specimens that fall within 2,000 meters from the mask,
+#and the altered coordinates for those specimens
+#par(mar=c(5, 4, 4, 2)+0.1) #default
+library(maptools)
+wrld_simpl<-data(wrld_simpl)
+par(mar=c(5, 5, 4, 0.01))
+#plot(predictors.bio1, col="gray90", useRaster=T, legend=F, cex.axis=1.5)
+plot(wrld_simpl,axes=TRUE, col="light yellow")
+#plot(sr.Nicaragua.coord.spatial[which(is.na(sr.Nicaragua.coord.land))], add=T, pch=19, cex=0.2, col="red")
+points((data.coord[which(is.na(data.coord.land)),3:2]), pch=19, cex=0.5, col="red")
+points(altered.coor[altered.coor[,3]<2000,1:2], pch=21, cex=0.2, col="blue")
+mtext(side=1, "Longitude (degrees)", cex=1.5, line=3.5)
+mtext(side=2, "Latitude (degrees)", cex=1.5, line=3.5)
+mtext(side=3, "Collection localities > 0 m  and < 2,000 m from mask (red),", cex=1.5, line=2)
+mtext(side=3, "and respective altered coordinates (blue)", cex=1.5, line=0.7)
+
+#plot the mask, and the specimens that fall at least 2,000 meters from the mask
+#par(mar=c(5, 4, 4, 2)+0.1) #default
+par(mar=c(5, 5, 4, 0.01))
+#plot the mask and specimens that fall off the mask
+#plot(predictors.bio1, col="gray90", useRaster=T, legend=F, cex.axis=1.5)
+plot(wrld_simpl,  axes=TRUE, col="light yellow")
+
+#plot(sr.Nicaragua.coord.spatial[which(is.na(sr.Nicaragua.coord.land))], add=T, pch=19, cex=0.2, col="red")
+points((data.coord[which(is.na(data.coord.land)),3:2])[altered.coor[,3]>=2000,], pch=19, cex=0.7, col="red")
+mtext(side=1, "Longitude (degrees)", cex=1.5, line=3.5)
+mtext(side=2, "Latitude (degrees)", cex=1.5, line=3.5)
+#mtext(side=3, "Collection localities >= 2,000 m from mask (red)", cex=1.5, line=2)
+mtext(side=3, expression(paste("Collection localities", phantom(0)>=phantom(0) , "2,000 m from mask (red)", sep="")), cex=1.5, line=1.5)
+
+############################################################################################################################
+# 7) Create a data frame with the specimen records that fall outside the mask, their new coordinates and
+# the distance in meters between the origninal and the new (altered) coordinates.
+############################################################################################################################
+
+setwd("C://Users/edeli/OneDrive/Projets_Recherche/2019_Tuber_project/TUBER_RPROJ/Data_Prep/Occurence_data/Solanum/Solanaceae_source_2021/")
+
+#This didn't really work, i'll be fine though, 687 specmens removed
+
+#specimen.records.to.edit <- data.frame(data.coord[which(is.na(data.coord.land)),], altered.coor)
+flags.pushback<- data.frame(data[which(is.na(data.coord.land)),])
+length(data.coord.land)
+dim(flags.pushback)
+head(flags.pushback)
+table(flags.pushback$genus.sp)
+table(flags.pushback$COUNTRY)
+
+
+write.csv(flags.pushback, file="./flags_pushback_other.csv")
+# examine that latter...
+
+data.pushback<- data[!data$BRAHMS %in% flags.pushback$BRAHMS,]
+data<-data.pushback
+dim(data.pushback)
+length(unique(data.pushback$genus.sp))
+#colnames(specimen.records.to.edit)[4] <-  "CollectionNumberNumeric"
+#colnames(specimen.records.to.edit)[5] <- "SeniorCollectorPersonID"
+plot(wrld_simpl,  axes=TRUE, col="light yellow")
+points(flags.pushback$LONGDEC,flags.pushback$LATDEC,col="red",pch=20,cex=0.75)
+
+#now 70238 specimens!
+
+###################################################################################
+#Coordinate_Cleaner section
+###################################################################################
+
+# setup libraries and data
+library(dplyr)
+library(ggplot2)
+library(rgbif)
+library(sp)
+library(countrycode)
+library(CoordinateCleaner)
+
+
+
+
+#select columns of interest
+data3 <- data %>%
+  dplyr::select(genus.sp, LATDEC, LONGDEC, COUNTRY, MAJORAREA,
+                BRAHMS, FAMILY,  YEAR, GENUS, ALT, ALTMAX, ALTUNIT, ALTRES,
+                TYPE, ACCEPTED, COLLECTOR, NUMBER) 
+
+
+
+# remove records without coordinates
+
+dim(data3)
+data3 <- data3%>%
+  filter(!is.na(LONGDEC))%>%
+  filter(!is.na(LATDEC))
+
+dim(data3) #109334
+
+
+##plot data to get an overview
+wm <- borders("world", colour="gray50", fill="gray50")
+ggplot()+ coord_fixed()+ wm +
+  geom_point(data = data3, aes(x = LONGDEC, y = LATDEC),
+             colour = "darkred", size = 0.5)+
+  theme_bw()
+
+##plot data to get an overview
+wm <- borders("world", colour="gray50", fill="gray50")
+ggplot()+ coord_fixed()+ wm +
+  geom_point(data = final.solanum, aes(x = LONGDEC, y = LATDEC),
+             colour = "darkred", size = 0.5)+
+  theme_bw()
+
+
+#convert country code from ISO2c to ISO3c
+
+data3$ISO3C <-  countrycode(data3$COUNTRY, origin =  'country.name', destination = 'iso3c')
+
+data[data3$COUNTRY=="Micronesia",]
+data[data3$COUNTRY=="Netherland Antilles",]
+
+#to avoid specifying it in each function
+
+(names(data3))
+names(data3)[2]<-"decimallatitude"
+names(data3)[3]<-"decimallongitude"
+(names(data3))
+
+
+####Points that fall in the sea
+
+names(data3)[2:3] <- c("decimallatitude", "decimallongitude")
+
+#clean_sea <- data3%>%
+#  cc_sea()
+
+#data[!data3$BRAHMS%in%clean_sea$BRAHMS,]->sea
+#dim(sea)#3203 records #35632 records...
+
+
+#pdf(file="potato_gbif_flag.pdf")
+
+#plot(wrld_simpl,  axes=TRUE, col="light yellow")
+#points(sea$LONGDEC, sea$LATDEC, col="red", cex=0.75)
+#dev.off()
+#write.csv(gbif,file="potato_gbif_flag.csv")
+#write.table(sea,file="Sol_pimp_sea_flag.txt",sep="\t")
+
+#### NOT REMOVING THIS BECAUSE MUCH MORE THAN WHAT I DETECTED...
+
+
+####points that are not valid
+clean_val <- data3%>%  cc_val()
+
+data[!data3$BRAHMS%in%clean_val$BRAHMS,]->val
+dim(val)#0!
+
+#pdf(file="./flags/potato_val_flag.pdf")
+
+plot(wrld_simpl, xlim=c(-180,-20), ylim=c(-60,60), axes=TRUE, col="light yellow")
+points(data$LONGDEC, data$LATDEC, col="black", cex=0.75)
+points(val$LONGDEC, val$LATDEC, col="red", cex=0.75)
+
+#dev.off()
+
+#write.csv(val,file="potato_val_flag.csv")
+
+####Equivalent lon & lat
+clean_equ <- data3%>%
+  cc_equ()
+
+data[!data3$BRAHMS%in%clean_equ$BRAHMS,]->equ
+dim(equ)#4
+
+pdf(file="./flags/Solanum_equ_flag.pdf")
+plot(wrld_simpl, axes=TRUE, col="light yellow")
+points(data$LONGDEC, data$LATDEC, col="black", cex=0.75)
+points(equ$LONGDEC, equ$LATDEC, col="red", cex=0.75)
+dev.off()
+
+write.csv(equ,file="./Flag_equ_solanum.csv")
+
+####Points that fall near the gbif institution
+clean_gbif <- data3%>%
+  cc_gbif()
+
+data[!data3$BRAHMS%in%clean_gbif$BRAHMS,]->gbif
+dim(gbif)#0!
+
+#pdf(file="potato_gbif_flag.pdf")
+plot(wrld_simpl,  axes=TRUE, col="light yellow")
+points(gbif$decimallongitude, gbif$decimallatitude, col="red", cex=0.75)
+#dev.off()
+
+#write.csv(gbif,file="potato_gbif_flag.csv")
+
+####Points that fall near gardens and other institutions
+clean_inst <- data3%>%
+  cc_inst()
+
+data[!data3$BRAHMS%in%clean_inst$BRAHMS,]->inst
+dim(inst)#128!
+
+pdf(file="./flags/Solanum_inst_flag.pdf")
+plot(wrld_simpl,  axes=TRUE, col="light yellow")
+points(data$LONGDEC, data$LATDEC, col="black", cex=0.75)
+points(inst$LONGDEC, inst$LATDEC, col="red", cex=0.75)
+dev.off()
+
+write.csv(inst,file="./Solanum_inst_flag.csv")
+
+####Points that are zero longitude and zero latitude and a radium around the zero lon and zero lat
+clean_zero <- data3%>%
+  cc_zero()
+
+data[!data3$BRAHMS%in%clean_zero$BRAHMS,]->zero
+dim(zero)#4
+
+
+pdf(file="./Solanum_zero_flag.pdf")
+plot(wrld_simpl, xlim=c(-180,180), ylim=c(-60,60), axes=TRUE, col="light yellow")
+points(data$LONGDEC, data$LATDEC, col="black", cex=0.75)
+points(zero$LONGDEC, zero$LATDEC, col="red", cex=0.75)
+dev.off()
+write.csv(zero,file="./Solanum_zero_flag.csv")
+
+
+
+#Final dataset without the values flagged in previous tests
+clean_val[clean_val$BRAHMS%in%clean_equ$BRAHMS,]->clean_cc
+clean_cc[clean_cc$BRAHMS%in%clean_gbif$BRAHMS,]->clean_cc
+clean_cc[clean_cc$BRAHMS%in%clean_inst$BRAHMS,]->clean_cc
+clean_cc[clean_cc$BRAHMS%in%clean_zero$BRAHMS,]->clean_cc
+
+dim(clean_cc)
+data[data3$BRAHMS%in%clean_cc$BRAHMS,]->clean_cc2
+dim(clean_cc2)
+
+data<-clean_cc2 # 76527 occurence records
+
+
+#############
+
+####Points that fall into centroids
+clean_cen <- data3%>%
+  cc_cen()
+
+data[!data3$BRAHMS%in%clean_cen$BRAHMS,]->cen
+dim(cen) # 237
+
+pdf(file="./Solanum_cen_flag.pdf")
+plot(wrld_simpl, xlim=c(-180,180), ylim=c(-60,60), axes=TRUE, col="light yellow")
+points(data$LONGDEC, data$LATDEC, col="black", cex=0.75)
+points(cen$LONGDEC, cen$LATDEC, col="red", cex=0.75)
+dev.off()
+
+getwd()
+write.csv(cen,file="./Solanum_cen_flag.csv")
+
+
+####Points that fall into capitals, within a 10 km radium from centroid
+clean_cap <- data3%>%
+  cc_cap()
+#1674 records
+
+data[!data3$BRAHMS%in%clean_cap$BRAHMS,]->cap
+dim(cap)#1674 records
+
+pdf(file="./Solanum_cap_flag.pdf")
+plot(wrld_simpl, xlim=c(-180,180), ylim=c(-60,60), axes=TRUE, col="light yellow")
+points(data$LONGDEC, data$LATDEC, col="black", cex=0.75)
+points(cap$LONGDEC, cap$LATDEC, col="red", cex=0.75)
+dev.off()
+
+getwd()
+write.csv(cap,file="./Solanum_cap_flag.csv")
+
+#No longer needed: remove.cap<-c(82665,77260,85273,122387,122388,122393,122394,122395,122396,122397,122398,122399,122425,122426,122427,122459,122460,122462,122463,122464,122465,122466,122467,122468,122469,122470,122472,122896,122898,122899)
+# I don't think that any of hese represent problems
+#dim(data)#16271 occurence records
+#data <- data[ ! data$BRAHMS %in% remove.cap, ]
+#dim(data)#16268 occurence records
+
+######### removing duplicates
+#First version, removes a lot!
+clean_dupl <- data3%>%
+  cc_dupl(.,species="genus.sp")
+
+data[!data3$BRAHMS%in%clean_dupl$BRAHMS,]->dupl
+dim(dupl)# 15295 duplicates
+
+write.csv(dupl,file="./Sol_dupl_flag_Coord.csv")
+write.table(dupl,file="./Sol_dupl_flag_coord.txt",sep="\t")
+
+
+#Second version, removes less, and herbarium duplicates
+clean_dupl <- data3%>%
+  cc_dupl(.,species="genus.sp",additions = c("COLLECTOR","NUMBER")) #936 records
+
+#Chilense has 3 herbarium duplicates
+#Penn has 0 herbarium duplicates.
+#Pimp has 0 herbarium duplicates.
+
+write.table(dupl,file="./Sol_dupl_flag_herb.txt",sep="\t")
+
+data[!data3$BRAHMS%in%clean_dupl$BRAHMS,]->dupl
+dim(dupl) #934
+
+pdf(file="./Solanum_dupl_flag.pdf")
+plot(wrld_simpl, xlim=c(-180,180), ylim=c(-60,60), axes=TRUE, col="light yellow")
+points(data$LONGDEC, data$LATDEC, col="black", cex=0.75)
+points(dupl$LONGDEC, dupl$LATDEC, col="red", cex=0.75)
+dev.off()
+
+getwd()
+write.csv(dupl,file="./flags/Solanum_dupl_flag.csv")
+
+dim(data)#70089
+
+toto<-data
+toto<-toto[toto$BRAHMS%in%clean_dupl$BRAHMS,]
+toto<-toto[toto$BRAHMS%in%clean_cap$BRAHMS,]
+toto<-toto[toto$BRAHMS%in%clean_cen$BRAHMS,]
+
+dim(toto)#73802
+
+dim(data)-dim(toto)#2725 removed
+data->backup
+toto->data.dup
+toto->data
+
+data.dup->data
+####################################################################
+#Removing altitude
+
+getwd()
+### ---------------------
+### Read in Altitude Data
+
+require(raster)
+
+alt<-raster("C://Users/edeli/OneDrive/Projets_Recherche/2019_Tuber_project/TUBER_RPROJ/Data_Prep/Environmental_layers/altitude/altitude_world.tif")
+
+#################
+
+#REPEAT THE PROCESS, but for all data together.
+#data<-data.dup
+#data<-data.sec2
+distribution_data <- data %>%
+  dplyr::select(genus.sp, LATDEC, LONGDEC, COUNTRY, LATLONG,
+                BRAHMS, YEAR, ALT, ALTMAX,COLLECTOR, NUMBER) 
+
+
+
+#silence the next line if you just want a table with all the species that should be excluded.
+#distribution_data[distribution_data$genus.sp%in%species[[x]],]->distribution_data
+
+
+dims <- dim(distribution_data)[1]
+#print(species[[x]])
+print(dims)
+
+if(length(distribution_data[,1])>0){
+  
+  # This bit of code removes any code for which there is no gps cooerdinate
+  for(y in length(distribution_data[,1]):1){
+    #      for(y in 1){
+    #y=1
+    if(is.na(distribution_data[y,2])){distribution_data <- distribution_data[-y,]}
+  }
+  
+  distribution_data[,8] <- gsub("[^0-9]","", distribution_data[,8]) #Alt
+  distribution_data[,8] <- as.numeric(distribution_data[,8]) 
+  distribution_data[,9] <- gsub("[^0-9]","", distribution_data[,9]) #AltMax
+  distribution_data[,9] <- as.numeric(distribution_data[,9])
+  distribution_data[,12] <- extract(alt, SpatialPoints(distribution_data[,3:2]))#long first, then lat
+  distribution_data[,13] <- NA
+  distribution_data[,14] <- NA
+
+#Number of samples for which altitude data is NA on the map, which is super odd.......
+length(which(is.na(distribution_data[,12])))
+index.alt.na<-which(is.na(distribution_data[,12]))
+flag.alt.na<-distribution_data[index.alt.na,]
+dim(flag.alt.na)
+write.table(flag.alt.na,file="flag.alt.na.csv",sep=";")
+getwd()
+}
+
+  distribution_data[,13]<-as.numeric(distribution_data[,13])
+  
+  for(y in 1:length(distribution_data[,1]))
+  {
+    
+    if(!is.na(distribution_data[y,12]))
+    {
+      if(!is.na(distribution_data[y,8]))
+      {
+        if(distribution_data[y,8] != 0)
+        {
+          distribution_data[y,13] <- distribution_data[y,8] - distribution_data[y,12]
+          if(distribution_data[y,13]<0)
+          {distribution_data[y,13] <- 0-as.numeric(distribution_data[y,13])
+          }
+        }
+      }
+      if(is.na(distribution_data[y,8])){distribution_data[y,13] <- NA}
+      
+      if(!is.na(distribution_data[y,9]))
+      {
+        if(distribution_data[y,9] != 0)
+        {
+          distribution_data[y,14] <- distribution_data[y,9] - distribution_data[y,12]
+          if(distribution_data[y,14]<0)
+          {distribution_data[y,14] <- 0-as.numeric(distribution_data[y,14])
+          }
+        }
+      }
+      distribution_data[y,13] <- max(distribution_data[y,13], distribution_data[y,14], na.rm=T)
+    }
+  }
+  
+  distribution_data <- distribution_data[,-14]
+  
+  index <- which(distribution_data[,13]>500)
+  
+  if(length(index)>0){distribution_data2 <- distribution_data[-index,]}
+  
+  flags <- distribution_data[index,]
+  #  pdf(paste(directory, "solanum_dataset_altitude.pdf", sep=""))
+  
+  plot(wrld_simpl,  xlim=c(round(min(distribution_data$LONGDEC)),round(max(distribution_data$LONGDEC))), ylim=c(round(min(distribution_data$LATDEC)),round(max(distribution_data$LATDEC))),axes=TRUE, col="light yellow")
+  #     plot(wrld_simpl, axes=TRUE, col="light yellow")
+  
+  points(distribution_data$LONGDEC, distribution_data$LATDEC, col="black", cex=0.75)
+  points(flags$LONGDEC, flags$LATDEC, col="red", cex=0.75)
+  #dev.off()
+  
+  #distribution_data <- distribution_data[,-13]
+  #distribution_data <- distribution_data[,-12]
+  
+  if(dim(distribution_data2)[1]<dims){writeLines(paste("The entire dataset now has", dims-length(distribution_data2[,1]),"fewer points..."))}
+  #write.csv(distribution_data, file=paste(directory,"solanum_dataset_altitude.csv", sep=""))
+  #write.csv(table(distribution_data$genus.sp),file=paste(directory,"solanum_dataset_altitude_TABLE.csv", sep=""))
+
+
+
+#write.csv(table(data$COUNTRY),file=paste(directory,"ORIGINAL_TABLE_COUNTRY.csv", sep=""))
+#write.csv(table(data$genus.sp),file=paste(directory,"ORIGINAL_TABLE_SPECIES.csv", sep=""))
+
+dim(distribution_data2)
+length(unique(distribution_data2$genus.sp))
+table(distribution_data2$genus.sp)
+
+
+table(distribution_data2[,13])#Still are 26075 -Inf.....
+
+#This is some of the data for which infinity values were calculated, and I think it has to do with the dact that they had NA for th altitude...
+index2<-which(is.infinite(distribution_data2[,13]))      
+inf.probs<-distribution_data2[index2,]
+head(inf.probs)
+dim(inf.probs)
+
+data[data$BRAHMS%in%distribution_data2$BRAHMS,]->data.alt2
+data[!data$BRAHMS%in%distribution_data2$BRAHMS,]->flags.alt2
+
+dim(data.alt2) #64706
+dim(flags.alt2) #9096
+
+plot(wrld_simpl, axes=TRUE, col="light yellow")
+points(data.alt2$LONGDEC, data.alt2$LATDEC, col="red", cex=0.75)
+points(flags.alt2$LONGDEC, flags.alt2$LATDEC, col="black", cex=0.75)
+dev.off()
+
+write.table(data.alt2,file="FINAL_64706_Solanum_other.csv",sep = ";")
+write.table(flags.alt2,file="./flags_altitude_Solanum.csv",sep = ";")
+write.table(flags,file="./flags_altitude_Solanum2.csv",sep = ";")
+
+write.table(data.dup,file="FINAL_73802_Solanum_other.csv",sep = ";")
+write.table(data.dup,file="FINAL_73802_Solanum_other.tab",sep = "\t")
+
+#############
+
+write.table(data,file="FINAL_72773_Solanum_other.csv",sep = ";")
+
+
+#pdf("FINAL_57649_map_SOLANUM.pdf")
+plot(wrld_simpl, axes=TRUE, col="light yellow")
+points(original.data$LONGDEC, original.data$LATDEC, col="black", cex=0.75)
+points(data$LONGDEC, data$LATDEC, col="red", cex=0.75)
+#dev.off()
+
+############### ADD AUSTRALIAN SPECIMENS.
+add_records2<-read.csv(file.choose(),header=TRUE,sep=";")
+
+#
+
+add_records2<-add_records 
+
+#need to add 
+aus.names<-names(add_records2)
+data.dup.names<-names(data.dup)
+
+setdiff(aus.names,data.dup.names)
+setdiff(data.dup.names,aus.names)
+
+names(add_records2)[22]<-"USES"
+names(add_records2)[23]<-"HABITATTXT"
+names(add_records2)[24]<-"NOTES"
+names(add_records2)[25]<-"DETBY" 
+names(add_records2)[26]<-"DETDAY"
+names(add_records2)[27]<-"DETMONTH" 
+names(add_records2)[28]<-"DETYEAR"
+names(add_records2)[29]<-"SP1"
+names(add_records2)[30]<-"AUTHOR1"
+names(add_records2)[31]<-"ACCESSION"
+
+add_records2$BARCODE<-add_records2$ACCESSION
+
+setdiff(aus.names,data.dup.names)
+setdiff(data.dup.names,aus.names)
+
+
+#remove cultivated species from Solanum
+cultivated<-c("Solanum_tuberosum","Solanum_lycopersicum", "Solanum_melongena", "Solanum_muricatum","Solanum_aethiopicum", 
+              "Solanum_macrocarpon", "Solanum_lasiocarpum", "Solanum_betaceum", "Solanum_sessiliflorum", "Solanum quitoense",
+              "Solanum_scabrum", "Solanum_aviculare", "Solanum_crispum", "Solanum_laciniatum", "Solanum_laxum", 
+              "Solanum_pseudocapsicum", "Solanum_seaforthianum", "Solanum_wendlandii", "Solanum_mammosum")
+
+
+
+data3 <- data.dup[ ! data.dup$genus.sp %in% cultivated, ]
+dim(data3)#72773
+length(unique(data3$genus.sp))#1132 species.
+
+remove.col<-setdiff(data.dup.names,aus.names)
+data3.slim<-data3[,!names(data3) %in% remove.col]
+dim(data3.slim)#72055
+dim(add_records2)
+merge.aus<-rbind(data3.slim,add_records2)
+dim(merge.aus)#96448
+
+
